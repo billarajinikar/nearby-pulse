@@ -1,0 +1,159 @@
+{% comment %} extensions/nearby-pulse-extension/blocks/social_proof.liquid {% endcomment %}
+
+<style>
+  .nearby-pulse-widget {
+    display: none;
+    margin: 14px 0;
+    padding: 14px 16px;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0fdf4, #ffffff);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    font-family: inherit;
+    animation: nearbyPulseFadeIn 0.35s ease-out;
+  }
+
+  .nearby-pulse-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .nearby-pulse-icon {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 999px;
+    background: #dcfce7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .nearby-pulse-content {
+    flex: 1;
+  }
+
+
+
+  .nearby-pulse-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #1f2937;
+  }
+
+
+
+  @keyframes nearbyPulseFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 749px) {
+    .nearby-pulse-widget {
+      padding: 12px 14px;
+      border-radius: 10px;
+    }
+
+    .nearby-pulse-text {
+      font-size: 13px;
+    }
+  }
+</style>
+
+<div id="nearby-pulse-widget" class="nearby-pulse-widget">
+  <div class="nearby-pulse-inner">
+    <div class="nearby-pulse-icon">📍</div>
+
+    <div class="nearby-pulse-content">
+      <p id="pulse-text" class="nearby-pulse-text"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const productId = "{{ product.id }}";
+  const storageKey = `nearby_pulse_${productId}`;
+  const now = Date.now();
+
+  fetch(`/apps/nearby-pulse?product_id={{ product.id }}&product_title={{ product.title | url_encode }}`)
+    .then(response => response.json())
+    .then(data => {
+      if (!data.shouldShow || !data.message) return;
+
+      const oneHour = 60 * 60 * 1000;
+      const cooldown = (data.cooldownMinutes || 4) * 60 * 1000;
+      const maxPerHour = data.maxPerProductPerHour || 2;
+
+      let history = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      history = history.filter(item => now - item.time < oneHour);
+
+      const lastShown = history.length > 0 ? history[history.length - 1].time : 0;
+
+      if (history.length >= maxPerHour) return;
+      if (now - lastShown < cooldown) return;
+
+      const widget = document.getElementById("nearby-pulse-widget");
+      const text = document.getElementById("pulse-text");
+
+      text.innerText = data.message;
+      widget.style.display = "block";
+
+      history.push({ time: now });
+      localStorage.setItem(storageKey, JSON.stringify(history));
+
+      const trackingKey = `nearby_pulse_tracked_${productId}`;
+      const trackingWindow = 30 * 60 * 1000;
+      const lastTracked = Number(localStorage.getItem(trackingKey) || 0);
+      const canTrack = now - lastTracked > trackingWindow;
+
+      if (data.tracking && canTrack) {
+        fetch("/apps/nearby-pulse", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...data.tracking,
+            event_type: "widget_shown"
+          })
+        })
+          .then(() => {
+            localStorage.setItem(trackingKey, String(now));
+          })
+          .catch(error => {
+            console.error("NearbyPulse tracking error:", error);
+          });
+      }
+
+      setTimeout(() => {
+        widget.style.display = "none";
+      }, (data.displaySeconds || 10) * 1000);
+    })
+    .catch(error => {
+      console.error("NearbyPulse error:", error);
+    });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "NearbyPulse Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Widget Title",
+      "default": "Nearby Activity"
+    }
+  ]
+}
+{% endschema %}
