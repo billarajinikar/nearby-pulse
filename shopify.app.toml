@@ -7,7 +7,7 @@ application_url = "https://app.nearbypulse.app"
 embedded = true
 
 [access_scopes]
-scopes = "write_products,write_metaobjects,write_metaobject_definitions"
+scopes = ""
 
 [webhooks]
 api_version = "2026-07"
