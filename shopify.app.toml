@@ -1,7 +1,7 @@
 # Learn more about configuring your app:
 # https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "129648e8356f007bc7b7f0199333dcdb"
+client_id = "41f4fdb9bae1f212262e354d51a534b8"
 name = "NearbyPulse"
 application_url = "https://app.nearbypulse.app"
 embedded = true
