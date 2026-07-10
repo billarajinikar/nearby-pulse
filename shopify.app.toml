@@ -12,6 +12,7 @@ scopes = ""
 [webhooks]
 api_version = "2026-07"
 
+
 [[webhooks.subscriptions]]
 uri = "/webhooks/app/uninstalled"
 topics = ["app/uninstalled"]
@@ -19,6 +20,14 @@ topics = ["app/uninstalled"]
 [[webhooks.subscriptions]]
 uri = "/webhooks/app/scopes_update"
 topics = ["app/scopes_update"]
+
+[[webhooks.subscriptions]]
+uri = "/webhooks/compliance"
+compliance_topics = [
+  "customers/data_request",
+  "customers/redact",
+  "shop/redact"
+]
 
 [auth]
 redirect_urls = [
