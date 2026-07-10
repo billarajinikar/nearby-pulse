@@ -26,11 +26,11 @@ export default function App() {
 
   <s-link href="/app/billing">Billing</s-link>
 
-  <s-link href="/app/support">Support</s-link>
+  <s-link href="/support">Support</s-link>
 
-  <s-link href="/app/privacy">Privacy</s-link>
+  <s-link href="/privacy">Privacy</s-link>
 
-  <s-link href="/app/terms">Terms</s-link>
+  <s-link href="/terms">Terms</s-link>
 </s-app-nav>
       <Outlet />
     </AppProvider>
