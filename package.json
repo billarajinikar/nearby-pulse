@@ -21,7 +21,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=20.19 <22 || >=22.12"
+    "node": ">=22 <25"
   },
   "dependencies": {
     "@maxmind/geoip2-node": "^7.0.0",
