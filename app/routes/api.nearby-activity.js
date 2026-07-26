@@ -72,6 +72,9 @@ const DEFAULT_RESPONSE = {
   message: null,
 };
 
+const FALLBACK_ANNOUNCEMENT =
+  "Shoppers in your area are viewing this product right now.";
+
 /**
  * Safely cleans a string before it is returned or saved.
  */
@@ -958,9 +961,57 @@ export async function loader({ request }) {
     !selectedMessage ||
     !selectedMessage.message
   ) {
-    return Response.json(
-      DEFAULT_RESPONSE,
+    const fallbackMessage = cleanString(
+      settings.fixed_message,
+      500,
     );
+
+    const message =
+      fallbackMessage ||
+      FALLBACK_ANNOUNCEMENT;
+
+    return Response.json({
+      shouldShow: true,
+      message,
+      messageType: "announcement",
+      tracking: {
+        productId,
+        productTitle,
+        visitorCity: cleanString(
+          visitor.city,
+          150,
+        ),
+        visitorCountry: cleanString(
+          visitor.countryCode,
+          10,
+        ),
+        displayedCity: null,
+        messageText: message,
+        messageType: "announcement",
+        sourceActivityId: null,
+        sourceActivityType: null,
+      },
+      displaySeconds: clampNumber(
+        settings.display_seconds,
+        3,
+        30,
+        10,
+      ),
+      cooldownMinutes: clampNumber(
+        settings.cooldown_minutes,
+        0,
+        180,
+        15,
+      ),
+      maxPerProductPerHour: clampNumber(
+        settings.max_per_product_per_hour,
+        1,
+        20,
+        3,
+      ),
+      debugReason:
+        "No nearby activity yet; fallback announcement displayed.",
+    });
   }
 
   return Response.json({
