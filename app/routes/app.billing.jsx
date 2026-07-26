@@ -6,43 +6,17 @@ import {
 
 import PropTypes from "prop-types";
 
+import { authenticate } from "../shopify.server";
+
 import {
-  authenticate,
   BILLING_PLANS,
-} from "../shopify.server";
-
-const PLAN_DETAILS = {
-  [BILLING_PLANS.GROWTH]: {
-    key: BILLING_PLANS.GROWTH,
-    name: "Growth",
-    price: "$4.99",
-    period: "per month",
-    trialDays: 7,
-
-    features: [
-      "Unlimited widget displays",
-      "Location-aware activity messages",
-      "Merchant-created store messages",
-      "Custom activity message templates",
-      "Analytics dashboard",
-      "Displayed city insights",
-      "Product performance insights",
-      "7-day free trial",
-    ],
-  },
-};
+  BILLING_PLAN_DETAILS,
+} from "../constants/billing";
 
 const PLANS = Object.values(
-  PLAN_DETAILS,
+  BILLING_PLAN_DETAILS,
 );
 
-/**
- * Use a dedicated environment variable for billing test mode.
- *
- * Do not base billing test mode on NODE_ENV because your
- * deployed test environment normally runs with NODE_ENV set
- * to production.
- */
 function isBillingTestMode() {
   return (
     process.env
@@ -51,10 +25,6 @@ function isBillingTestMode() {
   );
 }
 
-/**
- * Shopify can return the configured plan name in different
- * capitalisation. This helper identifies the active plan.
- */
 function resolveActivePlan(
   hasActivePayment,
   appSubscriptions,
@@ -84,10 +54,6 @@ function resolveActivePlan(
     return BILLING_PLANS.GROWTH;
   }
 
-  /**
-   * NearbyPulse currently has only one paid plan.
-   * Therefore, any valid active payment belongs to Growth.
-   */
   return BILLING_PLANS.GROWTH;
 }
 
@@ -98,7 +64,6 @@ const styles = {
     margin: "0 auto",
     padding: "32px 24px 48px",
     boxSizing: "border-box",
-
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
@@ -287,9 +252,6 @@ const styles = {
   },
 };
 
-/**
- * Loads the merchant's current billing status.
- */
 export const loader = async ({
   request,
 }) => {
@@ -311,7 +273,6 @@ export const loader = async ({
       plans: [
         BILLING_PLANS.GROWTH,
       ],
-
       isTest,
     });
 
@@ -328,7 +289,6 @@ export const loader = async ({
           shop: session.shop,
           hasActivePayment,
           activePlan,
-
           subscriptionCount:
             Array.isArray(
               appSubscriptions,
@@ -362,9 +322,6 @@ export const loader = async ({
   }
 };
 
-/**
- * Starts the Shopify billing approval flow.
- */
 export const action = async ({
   request,
 }) => {
@@ -399,77 +356,70 @@ export const action = async ({
   const isTest =
     isBillingTestMode();
 
+  let hasActivePayment = false;
+
   try {
-    /**
-     * Prevent duplicate subscriptions when a merchant
-     * resubmits the form or manually repeats the request.
-     */
-    const {
-      hasActivePayment,
-    } = await billing.check({
-      plans: [
-        BILLING_PLANS.GROWTH,
-      ],
-
-      isTest,
-    });
-
-    if (hasActivePayment) {
-      return Response.json(
-        {
-          error:
-            "The Growth plan is already active.",
-        },
-        {
-          status: 409,
-        },
-      );
-    }
-
-    const requestUrl =
-      new URL(request.url);
-
-    const returnUrl =
-      `${requestUrl.origin}/app/billing`;
-
-    console.info(
-      "[NearbyPulse Billing] Starting subscription",
-      {
-        shop: session.shop,
-        plan:
+    const billingStatus =
+      await billing.check({
+        plans: [
           BILLING_PLANS.GROWTH,
+        ],
         isTest,
-      },
-    );
+      });
 
-    /**
-     * billing.request() redirects the merchant to Shopify's
-     * subscription approval page.
-     */
-    return billing.request({
-      plan:
-        BILLING_PLANS.GROWTH,
-
-      isTest,
-
-      returnUrl,
-    });
+    hasActivePayment =
+      billingStatus.hasActivePayment;
   } catch (error) {
     console.error(
-      "[NearbyPulse Billing] Subscription request failed:",
+      "[NearbyPulse Billing] Pre-request check failed:",
       error,
     );
 
     return Response.json(
       {
         error:
-          "Unable to start the Shopify billing process. Please try again.",
+          "Unable to verify the current subscription. Please try again.",
       },
       {
         status: 500,
       },
     );
   }
+
+  if (hasActivePayment) {
+    return Response.json(
+      {
+        error:
+          "The Growth plan is already active.",
+      },
+      {
+        status: 409,
+      },
+    );
+  }
+
+  const requestUrl =
+    new URL(request.url);
+
+  const returnUrl =
+    `${requestUrl.origin}/app/billing`;
+
+  console.info(
+    "[NearbyPulse Billing] Starting subscription",
+    {
+      shop: session.shop,
+      plan:
+        BILLING_PLANS.GROWTH,
+      isTest,
+    },
+  );
+
+  return billing.request({
+    plan:
+      BILLING_PLANS.GROWTH,
+    isTest,
+    returnUrl,
+  });
 };
 
 function PlanCard({
@@ -492,7 +442,6 @@ function PlanCard({
 
   const buttonStyle = {
     ...styles.subscribeButton,
-
     ...(isButtonDisabled
       ? styles.subscribeButtonDisabled
       : {}),
@@ -502,7 +451,6 @@ function PlanCard({
     <div
       style={{
         ...styles.card,
-
         ...(isActive
           ? styles.activeCard
           : {}),
@@ -631,7 +579,7 @@ export default function BillingPage() {
   } = useLoaderData();
 
   const growthPlan =
-    PLAN_DETAILS[
+    BILLING_PLAN_DETAILS[
       BILLING_PLANS.GROWTH
     ];
 
@@ -675,9 +623,7 @@ export default function BillingPage() {
         >
           Unable to load your billing
           status. Refresh this page
-          and try again. Check the
-          application logs if the
-          problem continues.
+          and try again.
         </div>
       )}
 
@@ -716,11 +662,11 @@ export default function BillingPage() {
       </div>
 
       <p style={styles.footerNote}>
-        Your subscription is
-        securely approved and managed
-        through Shopify. You can
-        review or cancel app charges
-        from your Shopify admin.
+        Your subscription is securely
+        approved and managed through
+        Shopify. You can review or
+        cancel app charges from your
+        Shopify admin.
       </p>
     </div>
   );
@@ -761,8 +707,6 @@ export function ErrorBoundary() {
           NearbyPulse could not load
           the billing page. Refresh
           the page and try again.
-          Contact support if the
-          problem continues.
         </p>
       </div>
     </div>
