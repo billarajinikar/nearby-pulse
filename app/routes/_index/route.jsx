@@ -18,9 +18,10 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <h1 className={styles.heading}>A short heading about [your app]</h1>
+        <h1 className={styles.heading}>Real social proof from real nearby customers.</h1>
         <p className={styles.text}>
-          A tagline about [your app] that describes your value proposition.
+          NearbyPulse shows shoppers genuine purchase activity from customers in their area —
+          building trust and boosting conversions without fake urgency.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
@@ -36,16 +37,13 @@ export default function App() {
         )}
         <ul className={styles.list}>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Location-aware social proof</strong>. Show shoppers real purchase activity from nearby customers — powered by your actual Shopify orders.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>100% real data</strong>. Messages are backed by genuine orders, not fabricated urgency. Stay FTC-compliant and build lasting trust.
           </li>
           <li>
-            <strong>Product feature</strong>. Some detail about your feature and
-            its benefit to your customer.
+            <strong>Analytics & insights</strong>. Track widget impressions, top visitor cities, and most-influenced products from your dashboard.
           </li>
         </ul>
       </div>

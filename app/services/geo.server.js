@@ -17,20 +17,23 @@ export async function getLocationFromIp(ipAddress) {
   try {
     if (!ipAddress) return null;
 
-    // Useful for local testing
+    // Local/private IP — allow overriding via env vars for development
     if (
       ipAddress === "127.0.0.1" ||
       ipAddress === "::1" ||
       ipAddress.startsWith("192.168.") ||
       ipAddress.startsWith("10.")
     ) {
-      return {
-        city: "Västerås",
-        countryCode: "SE",
-        latitude: 59.6099,
-        longitude: 16.5448,
-        source: "fallback",
-      };
+      if (process.env.DEV_GEO_LAT && process.env.DEV_GEO_LNG) {
+        return {
+          city: process.env.DEV_GEO_CITY || "Test City",
+          countryCode: process.env.DEV_GEO_COUNTRY || "US",
+          latitude: parseFloat(process.env.DEV_GEO_LAT),
+          longitude: parseFloat(process.env.DEV_GEO_LNG),
+          source: "dev",
+        };
+      }
+      return null;
     }
 
     const reader = await getGeoReader();
@@ -46,14 +49,7 @@ export async function getLocationFromIp(ipAddress) {
     };
   } catch (error) {
     console.error("MaxMind lookup failed:", error);
-
-    return {
-      city: "Västerås",
-      countryCode: "SE",
-      latitude: 59.6099,
-      longitude: 16.5448,
-      source: "fallback",
-    };
+    return null;
   }
 }
 
