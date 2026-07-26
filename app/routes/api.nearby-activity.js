@@ -17,7 +17,13 @@ import {
 const ALLOWED_ANALYTICS_EVENT_TYPES = new Set([
   "widget_shown",
   "widget_clicked",
+]);
+
+const ALLOWED_STOREFRONT_EVENT_TYPES = new Set([
+  "product_viewed",
   "add_to_cart",
+  "checkout_started",
+  "order_completed",
 ]);
 
 /**
@@ -1145,14 +1151,108 @@ export async function action({ request }) {
     );
   }
 
-  const eventType =
-    cleanString(
-      body.event_type,
-      50,
+  const eventType = cleanString(
+    body.event_type,
+    50,
+  );
+
+  if (!eventType) {
+    return Response.json(
+      {
+        success: false,
+        error: "Missing event type",
+      },
+      {
+        status: 400,
+      },
     );
+  }
 
   if (
-    !eventType ||
+    ALLOWED_STOREFRONT_EVENT_TYPES.has(
+      eventType,
+    )
+  ) {
+    const productId = normaliseProductId(
+      body.productId || body.product_id,
+    );
+
+    if (!productId) {
+      return Response.json(
+        {
+          success: false,
+          error: "Missing product ID",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    const clientIp = getClientIp(request);
+    const location = await getLocationFromIp(
+      clientIp,
+    );
+
+    const storefrontRow = {
+      shop,
+      event_type: eventType,
+      product_id: productId,
+      product_title: cleanString(
+        body.productTitle ||
+          body.product_title,
+        255,
+      ),
+      visitor_city: cleanString(
+        location?.city,
+        150,
+      ),
+      visitor_country: cleanString(
+        location?.countryCode ||
+          location?.country,
+        10,
+      ),
+      latitude: toFiniteNumber(
+        location?.latitude,
+      ),
+      longitude: toFiniteNumber(
+        location?.longitude,
+      ),
+      source: "theme_extension",
+      created_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("storefront_activities")
+      .insert(storefrontRow);
+
+    if (error) {
+      console.error(
+        "Unable to record storefront activity:",
+        error,
+      );
+
+      return Response.json(
+        {
+          success: false,
+          error:
+            "Unable to record storefront activity",
+        },
+        {
+          status: 500,
+        },
+      );
+    }
+
+    return Response.json({
+      success: true,
+      eventType,
+      recordedIn:
+        "storefront_activities",
+    });
+  }
+
+  if (
     !ALLOWED_ANALYTICS_EVENT_TYPES.has(
       eventType,
     )

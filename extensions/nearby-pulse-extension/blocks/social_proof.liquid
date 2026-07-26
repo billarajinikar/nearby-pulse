@@ -100,6 +100,58 @@
   const storageKey = `nearby_pulse_${productId}`;
   const now = Date.now();
 
+  const storefrontEventWindowMs = 30 * 60 * 1000;
+
+  function sendStorefrontEventOnce(eventType) {
+    const eventKey = `nearby_pulse_storefront_${eventType}_${productId}`;
+    const lastSent = Number(localStorage.getItem(eventKey) || 0);
+    const shouldSend = now - lastSent > storefrontEventWindowMs;
+
+    if (!shouldSend) {
+      return;
+    }
+
+    fetch("/apps/nearby-pulse", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        event_type: eventType,
+        productId,
+        productTitle
+      })
+    })
+      .then(function () {
+        localStorage.setItem(eventKey, String(Date.now()));
+      })
+      .catch(function (error) {
+        console.error(
+          `[NearbyPulse] Failed to send storefront event ${eventType}:`,
+          error
+        );
+      });
+  }
+
+  // Seed real activity records so social-proof messages can appear.
+  sendStorefrontEventOnce("product_viewed");
+
+  const addToCartSelectors = [
+    'form[action*="/cart/add"] button[type="submit"]',
+    'button[name="add"]',
+    'button[data-product-atc]'
+  ];
+
+  addToCartSelectors.forEach(function (selector) {
+    document.querySelectorAll(selector).forEach(function (button) {
+      button.addEventListener("click", function () {
+        sendStorefrontEventOnce("add_to_cart");
+      });
+    });
+  });
+
   const query = new URLSearchParams({
     product_id: productId,
     product_title: productTitle,
