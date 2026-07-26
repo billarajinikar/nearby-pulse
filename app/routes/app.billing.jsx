@@ -4,31 +4,101 @@ import {
   useRouteError,
 } from "react-router";
 
-import { authenticate } from "../shopify.server";
+import PropTypes from "prop-types";
 
-const PLANS = [
-  {
-    key: "growth",
+import {
+  authenticate,
+  BILLING_PLANS,
+} from "../shopify.server";
+
+const PLAN_DETAILS = {
+  [BILLING_PLANS.GROWTH]: {
+    key: BILLING_PLANS.GROWTH,
     name: "Growth",
     price: "$4.99",
-    period: "/ month",
+    period: "per month",
+    trialDays: 7,
+
     features: [
       "Unlimited widget displays",
-      "Location-aware social proof",
-      "Custom message templates",
+      "Location-aware activity messages",
+      "Merchant-created store messages",
+      "Custom activity message templates",
       "Analytics dashboard",
-      "Visitor and displayed city insights",
+      "Displayed city insights",
       "Product performance insights",
       "7-day free trial",
     ],
   },
-];
+};
+
+const PLANS = Object.values(
+  PLAN_DETAILS,
+);
+
+/**
+ * Use a dedicated environment variable for billing test mode.
+ *
+ * Do not base billing test mode on NODE_ENV because your
+ * deployed test environment normally runs with NODE_ENV set
+ * to production.
+ */
+function isBillingTestMode() {
+  return (
+    process.env
+      .SHOPIFY_BILLING_TEST_MODE ===
+    "true"
+  );
+}
+
+/**
+ * Shopify can return the configured plan name in different
+ * capitalisation. This helper identifies the active plan.
+ */
+function resolveActivePlan(
+  hasActivePayment,
+  appSubscriptions,
+) {
+  if (!hasActivePayment) {
+    return null;
+  }
+
+  const subscriptions =
+    Array.isArray(appSubscriptions)
+      ? appSubscriptions
+      : [];
+
+  const growthSubscription =
+    subscriptions.find(
+      (subscription) =>
+        String(
+          subscription?.name || "",
+        )
+          .toLowerCase()
+          .includes(
+            BILLING_PLANS.GROWTH,
+          ),
+    );
+
+  if (growthSubscription) {
+    return BILLING_PLANS.GROWTH;
+  }
+
+  /**
+   * NearbyPulse currently has only one paid plan.
+   * Therefore, any valid active payment belongs to Growth.
+   */
+  return BILLING_PLANS.GROWTH;
+}
 
 const styles = {
   page: {
-    maxWidth: 620,
+    width: "100%",
+    maxWidth: 680,
     margin: "0 auto",
-    padding: "32px",
+    padding: "32px 24px 48px",
+    boxSizing: "border-box",
+
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
@@ -38,7 +108,7 @@ const styles = {
   },
 
   title: {
-    margin: "0 0 8px 0",
+    margin: "0 0 8px",
     color: "#202223",
     fontSize: 26,
     lineHeight: 1.3,
@@ -54,7 +124,7 @@ const styles = {
   errorBanner: {
     marginBottom: 20,
     padding: "14px 18px",
-    color: "#b91c1c",
+    color: "#8e1f0b",
     background: "#fff4f4",
     border: "1px solid #fca5a5",
     borderRadius: 8,
@@ -70,6 +140,7 @@ const styles = {
     border: "1px solid #bbe5b3",
     borderRadius: 8,
     fontSize: 14,
+    lineHeight: 1.5,
   },
 
   testBanner: {
@@ -95,7 +166,8 @@ const styles = {
     background: "#ffffff",
     border: "1px solid #e1e3e5",
     borderRadius: 14,
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.06)",
+    boxShadow:
+      "0 1px 3px rgba(0, 0, 0, 0.06)",
   },
 
   activeCard: {
@@ -115,34 +187,36 @@ const styles = {
   },
 
   planName: {
-    margin: "0 0 6px 0",
+    margin: "0 0 6px",
     color: "#202223",
     fontSize: 21,
+    lineHeight: 1.3,
   },
 
   price: {
-    margin: "0 0 4px 0",
+    margin: "0 0 4px",
     color: "#202223",
     fontSize: 32,
     fontWeight: 700,
+    lineHeight: 1.25,
   },
 
   period: {
-    marginLeft: 4,
+    marginLeft: 6,
     color: "#6d7175",
     fontSize: 15,
     fontWeight: 400,
   },
 
   trial: {
-    margin: "5px 0 18px 0",
+    margin: "5px 0 18px",
     color: "#008060",
     fontSize: 14,
     fontWeight: 600,
   },
 
   features: {
-    margin: "0 0 24px 0",
+    margin: "0 0 24px",
     padding: 0,
     listStyle: "none",
   },
@@ -153,7 +227,8 @@ const styles = {
     gap: 9,
     padding: "9px 0",
     color: "#3d4151",
-    borderBottom: "1px solid #f1f1f1",
+    borderBottom:
+      "1px solid #f1f1f1",
     fontSize: 14,
     lineHeight: 1.4,
   },
@@ -165,7 +240,7 @@ const styles = {
   },
 
   currentPill: {
-    padding: "11px 0",
+    padding: "12px 16px",
     color: "#1a6b3c",
     background: "#e3f1df",
     borderRadius: 8,
@@ -191,6 +266,18 @@ const styles = {
     opacity: 0.65,
   },
 
+  inlineError: {
+    marginTop: 12,
+    marginBottom: 0,
+    padding: "11px 14px",
+    color: "#8e1f0b",
+    background: "#fff4f4",
+    border: "1px solid #fca5a5",
+    borderRadius: 8,
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
   footerNote: {
     marginTop: 18,
     color: "#6d7175",
@@ -200,47 +287,56 @@ const styles = {
   },
 };
 
-export const loader = async ({ request }) => {
-  const { billing, session } = await authenticate.admin(request);
+/**
+ * Loads the merchant's current billing status.
+ */
+export const loader = async ({
+  request,
+}) => {
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
-  /*
-   * Development and preview deployments create test subscriptions.
-   * Production creates real subscriptions.
-   */
-  const isTest = process.env.NODE_ENV !== "production";
+  const isTest =
+    isBillingTestMode();
 
   try {
-    const { hasActivePayment, appSubscriptions } =
-      await billing.check({
-        plans: ["growth"],
-        isTest,
-      });
+    const {
+      hasActivePayment,
+      appSubscriptions,
+    } = await billing.check({
+      plans: [
+        BILLING_PLANS.GROWTH,
+      ],
 
-    const subscriptionName =
-      appSubscriptions?.[0]?.name?.toLowerCase() || "";
+      isTest,
+    });
 
-    let activePlan = null;
-
-    if (hasActivePayment) {
-      if (subscriptionName.includes("growth")) {
-        activePlan = "growth";
-      } else {
-        /*
-         * There is only one available plan, so an active payment
-         * belongs to the Growth plan even if Shopify returns a
-         * slightly different subscription name.
-         */
-        activePlan = "growth";
-      }
-    }
+    const activePlan =
+      resolveActivePlan(
+        hasActivePayment,
+        appSubscriptions,
+      );
 
     if (isTest) {
-      console.log("NearbyPulse billing status", {
-        shop: session.shop,
-        hasActivePayment,
-        activePlan,
-        appSubscriptions,
-      });
+      console.info(
+        "[NearbyPulse Billing] Status",
+        {
+          shop: session.shop,
+          hasActivePayment,
+          activePlan,
+
+          subscriptionCount:
+            Array.isArray(
+              appSubscriptions,
+            )
+              ? appSubscriptions.length
+              : 0,
+        },
+      );
     }
 
     return {
@@ -251,7 +347,10 @@ export const loader = async ({ request }) => {
       isTest,
     };
   } catch (error) {
-    console.error("Billing check failed:", error);
+    console.error(
+      "[NearbyPulse Billing] Check failed:",
+      error,
+    );
 
     return {
       shop: session.shop,
@@ -263,16 +362,33 @@ export const loader = async ({ request }) => {
   }
 };
 
-export const action = async ({ request }) => {
-  const { billing } = await authenticate.admin(request);
+/**
+ * Starts the Shopify billing approval flow.
+ */
+export const action = async ({
+  request,
+}) => {
+  const {
+    billing,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
 
-  const formData = await request.formData();
-  const selectedPlan = formData.get("plan");
+  const formData =
+    await request.formData();
 
-  if (selectedPlan !== "growth") {
+  const selectedPlan =
+    formData.get("plan");
+
+  if (
+    selectedPlan !==
+    BILLING_PLANS.GROWTH
+  ) {
     return Response.json(
       {
-        error: "Invalid billing plan.",
+        error:
+          "Invalid billing plan.",
       },
       {
         status: 400,
@@ -280,26 +396,104 @@ export const action = async ({ request }) => {
     );
   }
 
-  const isTest = process.env.NODE_ENV !== "production";
-  const requestUrl = new URL(request.url);
+  const isTest =
+    isBillingTestMode();
 
-  const returnUrl = `${requestUrl.origin}/app/billing`;
+  try {
+    /**
+     * Prevent duplicate subscriptions when a merchant
+     * resubmits the form or manually repeats the request.
+     */
+    const {
+      hasActivePayment,
+    } = await billing.check({
+      plans: [
+        BILLING_PLANS.GROWTH,
+      ],
 
-  return billing.request({
-    plan: "growth",
-    isTest,
-    returnUrl,
-  });
+      isTest,
+    });
+
+    if (hasActivePayment) {
+      return Response.json(
+        {
+          error:
+            "The Growth plan is already active.",
+        },
+        {
+          status: 409,
+        },
+      );
+    }
+
+    const requestUrl =
+      new URL(request.url);
+
+    const returnUrl =
+      `${requestUrl.origin}/app/billing`;
+
+    console.info(
+      "[NearbyPulse Billing] Starting subscription",
+      {
+        shop: session.shop,
+        plan:
+          BILLING_PLANS.GROWTH,
+        isTest,
+      },
+    );
+
+    /**
+     * billing.request() redirects the merchant to Shopify's
+     * subscription approval page.
+     */
+    return billing.request({
+      plan:
+        BILLING_PLANS.GROWTH,
+
+      isTest,
+
+      returnUrl,
+    });
+  } catch (error) {
+    console.error(
+      "[NearbyPulse Billing] Subscription request failed:",
+      error,
+    );
+
+    return Response.json(
+      {
+        error:
+          "Unable to start the Shopify billing process. Please try again.",
+      },
+      {
+        status: 500,
+      },
+    );
+  }
 };
 
-function PlanCard({ plan, isActive }) {
-  const fetcher = useFetcher();
+function PlanCard({
+  plan,
+  isActive,
+  billingUnavailable,
+}) {
+  const fetcher =
+    useFetcher();
 
-  const isSubmitting = fetcher.state !== "idle";
+  const isSubmitting =
+    fetcher.state !== "idle";
+
+  const actionError =
+    fetcher.data?.error || null;
+
+  const isButtonDisabled =
+    isSubmitting ||
+    billingUnavailable;
 
   const buttonStyle = {
     ...styles.subscribeButton,
-    ...(isSubmitting
+
+    ...(isButtonDisabled
       ? styles.subscribeButtonDisabled
       : {}),
   };
@@ -308,29 +502,52 @@ function PlanCard({ plan, isActive }) {
     <div
       style={{
         ...styles.card,
-        ...(isActive ? styles.activeCard : {}),
+
+        ...(isActive
+          ? styles.activeCard
+          : {}),
       }}
     >
       {isActive && (
-        <div style={styles.badge}>Active</div>
+        <div style={styles.badge}>
+          Active
+        </div>
       )}
 
-      <h2 style={styles.planName}>{plan.name}</h2>
+      <h2 style={styles.planName}>
+        {plan.name}
+      </h2>
 
       <div style={styles.price}>
         {plan.price}
-        <span style={styles.period}>{plan.period}</span>
+
+        <span style={styles.period}>
+          {plan.period}
+        </span>
       </div>
 
-      <p style={styles.trial}>7-day free trial</p>
+      <p style={styles.trial}>
+        {plan.trialDays}-day free trial
+      </p>
 
       <ul style={styles.features}>
-        {plan.features.map((feature) => (
-          <li key={feature} style={styles.feature}>
-            <span style={styles.check}>✓</span>
-            <span>{feature}</span>
-          </li>
-        ))}
+        {plan.features.map(
+          (feature) => (
+            <li
+              key={feature}
+              style={styles.feature}
+            >
+              <span
+                aria-hidden="true"
+                style={styles.check}
+              >
+                ✓
+              </span>
+
+              <span>{feature}</span>
+            </li>
+          ),
+        )}
       </ul>
 
       {isActive ? (
@@ -338,27 +555,72 @@ function PlanCard({ plan, isActive }) {
           Current plan
         </div>
       ) : (
-        <fetcher.Form method="post">
-          <input
-            type="hidden"
-            name="plan"
-            value={plan.key}
-          />
+        <>
+          <fetcher.Form method="post">
+            <input
+              type="hidden"
+              name="plan"
+              value={plan.key}
+            />
 
-          <button
-            type="submit"
-            style={buttonStyle}
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? "Opening Shopify billing..."
-              : "Start 7-day free trial"}
-          </button>
-        </fetcher.Form>
+            <button
+              type="submit"
+              style={buttonStyle}
+              disabled={
+                isButtonDisabled
+              }
+            >
+              {isSubmitting
+                ? "Opening Shopify billing..."
+                : `Start ${plan.trialDays}-day free trial`}
+            </button>
+          </fetcher.Form>
+
+          {actionError && (
+            <div
+              role="alert"
+              style={
+                styles.inlineError
+              }
+            >
+              {actionError}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
+
+PlanCard.propTypes = {
+  plan: PropTypes.shape({
+    key:
+      PropTypes.string.isRequired,
+
+    name:
+      PropTypes.string.isRequired,
+
+    price:
+      PropTypes.string.isRequired,
+
+    period:
+      PropTypes.string.isRequired,
+
+    trialDays:
+      PropTypes.number.isRequired,
+
+    features:
+      PropTypes.arrayOf(
+        PropTypes.string,
+      ).isRequired,
+  }).isRequired,
+
+  isActive:
+    PropTypes.bool.isRequired,
+
+  billingUnavailable:
+    PropTypes.bool.isRequired,
+};
 
 export default function BillingPage() {
   const {
@@ -368,53 +630,96 @@ export default function BillingPage() {
     isTest,
   } = useLoaderData();
 
+  const growthPlan =
+    PLAN_DETAILS[
+      BILLING_PLANS.GROWTH
+    ];
+
   return (
     <div style={styles.page}>
-      <div style={styles.headingSection}>
-        <h1 style={styles.title}>Billing</h1>
+      <div
+        style={
+          styles.headingSection
+        }
+      >
+        <h1 style={styles.title}>
+          Billing
+        </h1>
 
         <p style={styles.subtitle}>
-          Choose the NearbyPulse Growth plan and start
-          with a 7-day free trial.
+          Start using NearbyPulse
+          Growth with a 7-day free
+          trial.
         </p>
       </div>
 
       {isTest && (
-        <div style={styles.testBanner}>
-          <strong>Test billing mode:</strong> This
-          installation creates a Shopify test
-          subscription and will not charge the store.
+        <div
+          role="status"
+          style={styles.testBanner}
+        >
+          <strong>
+            Test billing mode:
+          </strong>{" "}
+          This installation creates
+          a Shopify test subscription
+          and will not charge the
+          store.
         </div>
       )}
 
       {billingError && (
-        <div style={styles.errorBanner}>
-          Unable to load your billing status. Refresh
-          this page and try again. Check the application
-          logs if the problem continues.
+        <div
+          role="alert"
+          style={styles.errorBanner}
+        >
+          Unable to load your billing
+          status. Refresh this page
+          and try again. Check the
+          application logs if the
+          problem continues.
         </div>
       )}
 
-      {hasActivePayment && (
-        <div style={styles.activeBanner}>
-          <strong>Active subscription:</strong>{" "}
-          NearbyPulse Growth — $9.99 per month
-        </div>
-      )}
+      {hasActivePayment &&
+        growthPlan && (
+          <div
+            role="status"
+            style={
+              styles.activeBanner
+            }
+          >
+            <strong>
+              Active subscription:
+            </strong>{" "}
+            NearbyPulse{" "}
+            {growthPlan.name} —{" "}
+            {growthPlan.price}{" "}
+            {growthPlan.period}
+          </div>
+        )}
 
       <div style={styles.grid}>
         {PLANS.map((plan) => (
           <PlanCard
             key={plan.key}
             plan={plan}
-            isActive={activePlan === plan.key}
+            isActive={
+              activePlan ===
+              plan.key
+            }
+            billingUnavailable={
+              billingError
+            }
           />
         ))}
       </div>
 
       <p style={styles.footerNote}>
-        Your subscription is managed securely through
-        Shopify. You can review or cancel app charges
+        Your subscription is
+        securely approved and managed
+        through Shopify. You can
+        review or cancel app charges
         from your Shopify admin.
       </p>
     </div>
@@ -422,14 +727,13 @@ export default function BillingPage() {
 }
 
 export function ErrorBoundary() {
-  const error = useRouteError();
+  const error =
+    useRouteError();
 
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : JSON.stringify(error, null, 2);
+  console.error(
+    "[NearbyPulse Billing] Route error:",
+    error,
+  );
 
   return (
     <div
@@ -439,29 +743,28 @@ export function ErrorBoundary() {
         padding: 32,
       }}
     >
-      <h1
-        style={{
-          marginBottom: 12,
-          color: "#202223",
-          fontSize: 22,
-        }}
+      <div
+        role="alert"
+        style={
+          styles.errorBanner
+        }
       >
-        Billing page error
-      </h1>
+        <strong>
+          Unable to load billing
+        </strong>
 
-      <pre
-        style={{
-          padding: 16,
-          overflow: "auto",
-          whiteSpace: "pre-wrap",
-          background: "#f6f6f7",
-          border: "1px solid #e1e3e5",
-          borderRadius: 8,
-          fontSize: 13,
-        }}
-      >
-        {message}
-      </pre>
+        <p
+          style={{
+            margin: "6px 0 0",
+          }}
+        >
+          NearbyPulse could not load
+          the billing page. Refresh
+          the page and try again.
+          Contact support if the
+          problem continues.
+        </p>
+      </div>
     </div>
   );
 }
