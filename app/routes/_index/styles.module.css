@@ -52,6 +52,18 @@
   padding: 0.25rem 0.65rem;
 }
 
+.dataSourceBadge {
+  margin: -0.35rem auto 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 0.22rem 0.62rem;
+  width: fit-content;
+}
+
 .form {
   display: flex;
   align-items: flex-end;

@@ -20,6 +20,9 @@ export default function App() {
       <div className={styles.content}>
         <p className={styles.badge}>Shopify App</p>
         <h1 className={styles.heading}>Real social proof from real nearby customers.</h1>
+        <p className={styles.dataSourceBadge}>
+          Data source: Activity + merchant announcements
+        </p>
         <p className={styles.text}>
           NearbyPulse shows shoppers genuine purchase activity from customers in their area —
           building trust and boosting conversions without fake urgency.
