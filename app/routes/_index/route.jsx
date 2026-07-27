@@ -18,34 +18,40 @@ export default function App() {
   return (
     <div className={styles.index}>
       <div className={styles.content}>
-        <p className={styles.badge}>Shopify App</p>
+        <div className={styles.heroTop}>
+          <p className={styles.badge}>Shopify App</p>
+          <p className={styles.dataSourceBadge}>
+            Data source: Activity + merchant announcements
+          </p>
+        </div>
         <h1 className={styles.heading}>Real social proof from real nearby customers.</h1>
-        <p className={styles.dataSourceBadge}>
-          Data source: Activity + merchant announcements
-        </p>
         <p className={styles.text}>
           NearbyPulse shows shoppers genuine purchase activity from customers in their area —
           building trust and boosting conversions without fake urgency.
         </p>
         {showForm && (
           <Form className={styles.form} method="post" action="/auth/login">
-            <label className={styles.label}>
-              <span className={styles.labelTitle}>Shop domain</span>
-              <input
-                className={styles.input}
-                type="text"
-                name="shop"
-                placeholder="your-store.myshopify.com"
-                autoComplete="on"
-                required
-              />
-              <span className={styles.labelHint}>
-                Use your <strong>.myshopify.com</strong> domain
-              </span>
-            </label>
-            <button className={styles.button} type="submit">
-              Log in
-            </button>
+            <div className={styles.formCard}>
+              <label className={styles.label}>
+                <span className={styles.labelTitle}>Shop domain</span>
+                <input
+                  className={styles.input}
+                  type="text"
+                  name="shop"
+                  placeholder="your-store.myshopify.com"
+                  autoComplete="on"
+                  inputMode="url"
+                  required
+                />
+                <span className={styles.labelHint}>
+                  Use your <strong>.myshopify.com</strong> domain to continue.
+                </span>
+              </label>
+              <button className={styles.button} type="submit">
+                Continue to Shopify
+              </button>
+            </div>
+            <p className={styles.formTrust}>No credit card required. Setup usually takes under 2 minutes.</p>
           </Form>
         )}
         <ul className={styles.list}>
