@@ -219,21 +219,10 @@ export default function App() {
           Analytics
         </s-link>
 
-        <s-link href="/app/billing">
-          Billing
-        </s-link>
-
         <s-link href="/support">
           Support
         </s-link>
 
-        <s-link href="/privacy">
-          Privacy
-        </s-link>
-
-        <s-link href="/terms">
-          Terms
-        </s-link>
       </s-app-nav>
 
       <Outlet />
