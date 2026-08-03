@@ -1,11 +1,88 @@
+/* global process */
+
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { ensureShopSetup } from "../services/shop-onboarding.server";
 
+async function resolveAppHandle(admin) {
+  if (process.env.SHOPIFY_APP_HANDLE) {
+    return process.env.SHOPIFY_APP_HANDLE;
+  }
+
+  const response =
+    await admin.graphql(
+      `#graphql
+      query NearbyPulseAppHandle {
+        currentAppInstallation {
+          app {
+            handle
+          }
+        }
+      }`,
+    );
+
+  const payload =
+    await response.json();
+
+  const resolvedHandle =
+    payload?.data
+      ?.currentAppInstallation
+      ?.app?.handle;
+
+  if (resolvedHandle) {
+    return resolvedHandle;
+  }
+
+  throw new Error(
+    "SHOPIFY_APP_HANDLE is not configured and app handle could not be resolved from Shopify Admin API.",
+  );
+}
+
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const {
+    admin,
+    billing,
+    redirect,
+    session,
+  } = await authenticate.admin(
+    request,
+  );
+
+  const appHandle =
+    await resolveAppHandle(
+      admin,
+    );
+
+  const {
+    hasActivePayment,
+  } = await billing.check();
+
+  const url =
+    new URL(request.url);
+
+  const isBillingRoute =
+    url.pathname ===
+    "/app/billing";
+
+  if (
+    !hasActivePayment &&
+    !isBillingRoute
+  ) {
+    const storeHandle =
+      session.shop.replace(
+        ".myshopify.com",
+        "",
+      );
+
+    const pricingUrl =
+      `https://admin.shopify.com/store/${storeHandle}/charges/${appHandle}/pricing_plans`;
+
+    return redirect(pricingUrl, {
+      target: "_top",
+    });
+  }
 
   await ensureShopSetup(session.shop);
 

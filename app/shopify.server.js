@@ -3,26 +3,12 @@ import "@shopify/shopify-app-react-router/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
-  BillingInterval,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 
 import prisma from "./db.server";
-
-/**
- * NearbyPulse billing plan identifiers.
- *
- * Use the same plan key everywhere:
- * - shopify.server.jsx
- * - app.billing.jsx
- * - billing.check()
- * - billing.request()
- */
-export const BILLING_PLANS = {
-  GROWTH: "growth",
-};
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -54,27 +40,6 @@ const shopify = shopifyApp({
 
   distribution:
     AppDistribution.AppStore,
-
-  /**
-   * Manual Shopify Billing API configuration.
-   *
-   * The visible pricing text on your billing page does not
-   * determine the actual charge. This configuration does.
-   */
-  billing: {
-    [BILLING_PLANS.GROWTH]: {
-      lineItems: [
-        {
-          amount: 4.99,
-          currencyCode: "USD",
-          interval:
-            BillingInterval.Every30Days,
-        },
-      ],
-
-      trialDays: 7,
-    },
-  },
 
   future: {
     expiringOfflineAccessTokens: true,
