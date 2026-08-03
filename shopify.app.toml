@@ -2,6 +2,7 @@
 
 client_id = "41f4fdb9bae1f212262e354d51a534b8"
 name = "NearbyPulse"
+handle = nearbypulse-23
 application_url = "https://app.nearbypulse.app"
 embedded = true
 
