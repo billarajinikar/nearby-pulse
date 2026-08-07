@@ -393,15 +393,13 @@ export default function AnalyticsPage() {
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>
-            NearbyPulse Analytics
-          </h1>
+  NearbyPulse Activity
+</h1>
 
-          <p style={styles.subtitle}>
-            See how often NearbyPulse messages
-            appear, which products receive the
-            most displays, and which locations
-            are most common in recent activity.
-          </p>
+<p style={styles.subtitle}>
+  Explore detailed NearbyPulse message activity,
+  products and displayed locations.
+</p>
         </div>
       </header>
 
@@ -435,8 +433,7 @@ export default function AnalyticsPage() {
         <Kpi
           label="Recent Activity Messages"
           value={activityMessagesShown}
-          helpText={`Verified activity messages within the latest ${statsLimit} displays.`}
-        />
+helpText={`Activity-backed messages within the latest ${statsLimit} displays.`}        />
 
         <Kpi
           label="Recent Store Messages"
@@ -696,7 +693,7 @@ function formatActivitySource(
       return "Product View";
 
     default:
-      return "Verified Activity";
+      return "Activity";
   }
 }
 

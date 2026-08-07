@@ -1,17 +1,44 @@
-{% comment %} extensions/nearby-pulse-extension/blocks/social_proof.liquid {% endcomment %}
+{% comment %}
+  NearbyPulse Shopify Theme App Extension
+
+  Responsibilities:
+  - Record genuine storefront activity
+  - Request a server-selected NearbyPulse message
+  - Respect merchant cooldown/display rules
+  - Report widget analytics using ONLY display_token
+{% endcomment %}
+
 
 <style>
   .nearby-pulse-widget {
     display: none;
     margin: 14px 0;
     padding: 14px 16px;
-    border: 1px solid rgba(34, 197, 94, 0.25);
+
+    border:
+      1px solid
+      rgba(34, 197, 94, 0.25);
+
     border-radius: 12px;
-    background: linear-gradient(135deg, #f0fdf4, #ffffff);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+
+    background:
+      linear-gradient(
+        135deg,
+        #f0fdf4,
+        #ffffff
+      );
+
+    box-shadow:
+      0 4px 14px
+      rgba(0, 0, 0, 0.06);
+
     font-family: inherit;
-    animation: nearbyPulseFadeIn 0.35s ease-out;
+
+    animation:
+      nearbyPulseFadeIn
+      0.35s ease-out;
   }
+
 
   .nearby-pulse-inner {
     display: flex;
@@ -19,43 +46,58 @@
     gap: 12px;
   }
 
+
   .nearby-pulse-icon {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    border-radius: 999px;
-    background: #dcfce7;
     display: flex;
     align-items: center;
     justify-content: center;
+
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+
+    border-radius: 999px;
+
+    background: #dcfce7;
+
     font-size: 16px;
   }
 
+
   .nearby-pulse-content {
     flex: 1;
+    min-width: 0;
   }
-
 
 
   .nearby-pulse-text {
     margin: 0;
+
+    color: #1f2937;
+
     font-size: 14px;
     line-height: 1.45;
-    color: #1f2937;
-  }
 
+    overflow-wrap: anywhere;
+  }
 
 
   @keyframes nearbyPulseFadeIn {
     from {
       opacity: 0;
-      transform: translateY(6px);
+
+      transform:
+        translateY(6px);
     }
+
     to {
       opacity: 1;
-      transform: translateY(0);
+
+      transform:
+        translateY(0);
     }
   }
+
 
   @media (max-width: 749px) {
     .nearby-pulse-widget {
@@ -63,80 +105,351 @@
       border-radius: 10px;
     }
 
+
     .nearby-pulse-text {
       font-size: 13px;
     }
   }
 </style>
 
-<div id="nearby-pulse-widget" class="nearby-pulse-widget">
+
+
+<div
+  id="nearby-pulse-widget"
+  class="nearby-pulse-widget"
+  role="status"
+  aria-live="polite"
+>
   <div class="nearby-pulse-inner">
-    <div class="nearby-pulse-icon">📍</div>
+
+    <div
+      class="nearby-pulse-icon"
+      aria-hidden="true"
+    >
+      📍
+    </div>
 
     <div class="nearby-pulse-content">
-      <p id="pulse-text" class="nearby-pulse-text"></p>
+
+      <p
+        id="pulse-text"
+        class="nearby-pulse-text"
+      ></p>
+
     </div>
+
   </div>
 </div>
 
+
+
 <script>
 (function () {
-  const widget = document.getElementById("nearby-pulse-widget");
-  const textElement = document.getElementById("pulse-text");
 
-  if (!widget || !textElement) {
-    console.error("[NearbyPulse] Widget HTML elements were not found.");
+  /*
+  |--------------------------------------------------------------------------
+  | DOM
+  |--------------------------------------------------------------------------
+  */
+
+  const widget =
+    document.getElementById(
+      "nearby-pulse-widget"
+    );
+
+  const textElement =
+    document.getElementById(
+      "pulse-text"
+    );
+
+
+  if (
+    !widget ||
+    !textElement
+  ) {
+    console.error(
+      "[NearbyPulse] Widget HTML elements were not found."
+    );
+
     return;
   }
 
-  const productId = "{{ product.id }}";
-  const productTitle = "{{ product.title | escape }}";
+
+  /*
+  |--------------------------------------------------------------------------
+  | Product
+  |--------------------------------------------------------------------------
+  */
+
+  const productId =
+    "{{ product.id }}";
+
+  const productTitle =
+    {{ product.title | json }};
+
+/*
+|--------------------------------------------------------------------------
+| Anonymous NearbyPulse session
+|--------------------------------------------------------------------------
+|
+| This token:
+|
+| - contains no customer information
+| - contains no email
+| - contains no Shopify customer ID
+| - contains no IP address
+| - expires naturally with the browser session
+|
+| It exists only to prevent shoppers from seeing
+| their own activity as social proof.
+|--------------------------------------------------------------------------
+*/
+
+const SESSION_STORAGE_KEY =
+  "nearby_pulse_session_id";
+
+
+function generateSessionId() {
+  if (
+    window.crypto &&
+    typeof window.crypto.randomUUID ===
+      "function"
+  ) {
+    return (
+      "np_" +
+      window.crypto
+        .randomUUID()
+        .replaceAll("-", "")
+    );
+  }
+
+  return (
+    "np_" +
+    Date.now().toString(36) +
+    "_" +
+    Math.random()
+      .toString(36)
+      .slice(2, 14)
+  );
+}
+
+
+function getNearbyPulseSessionId() {
+  try {
+    let sessionId =
+      sessionStorage.getItem(
+        SESSION_STORAGE_KEY
+      );
+
+    if (!sessionId) {
+      sessionId =
+        generateSessionId();
+
+      sessionStorage.setItem(
+        SESSION_STORAGE_KEY,
+        sessionId
+      );
+    }
+
+    return sessionId;
+  } catch {
+    /*
+     * Storage may be unavailable in highly
+     * restrictive privacy environments.
+     *
+     * We still generate an in-memory ID.
+     */
+    return generateSessionId();
+  }
+}
+
+
+const nearbyPulseSessionId =
+  getNearbyPulseSessionId();
 
   if (!productId) {
-    console.error("[NearbyPulse] Product ID is missing.");
+    console.error(
+      "[NearbyPulse] Product ID is missing."
+    );
+
     return;
   }
 
-  const storageKey = `nearby_pulse_${productId}`;
-  const now = Date.now();
 
-  const storefrontEventWindowMs = 30 * 60 * 1000;
+  /*
+  |--------------------------------------------------------------------------
+  | Storage helpers
+  |--------------------------------------------------------------------------
+  */
 
-  function sendStorefrontEventOnce(eventType) {
-    const eventKey = `nearby_pulse_storefront_${eventType}_${productId}`;
-    const lastSent = Number(localStorage.getItem(eventKey) || 0);
-    const shouldSend = now - lastSent > storefrontEventWindowMs;
+  const displayStorageKey =
+    `nearby_pulse_${productId}`;
 
-    if (!shouldSend) {
+
+  const STOREFRONT_EVENT_WINDOW_MS =
+    30 * 60 * 1000;
+
+
+  function getStoredNumber(key) {
+    try {
+      return Number(
+        localStorage.getItem(key) ||
+        0
+      );
+    } catch {
+      return 0;
+    }
+  }
+
+
+  function setStoredValue(
+    key,
+    value
+  ) {
+    try {
+      localStorage.setItem(
+        key,
+        value
+      );
+    } catch {
+      /*
+       * Some browsers/privacy modes may
+       * disable storage.
+       *
+       * NearbyPulse should still work.
+       */
+    }
+  }
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Storefront activity
+  |--------------------------------------------------------------------------
+  |
+  | These are REAL customer actions.
+  |
+  | They are different from:
+  |
+  | widget_shown
+  | widget_clicked
+  |
+  | Purchases are deliberately not recorded here.
+  |--------------------------------------------------------------------------
+  */
+
+  function sendStorefrontEventOnce(
+    eventType
+  ) {
+    const eventKey =
+      `nearby_pulse_storefront_${eventType}_${productId}`;
+
+
+    const now =
+      Date.now();
+
+
+    const lastSent =
+      getStoredNumber(
+        eventKey
+      );
+
+
+    if (
+      now - lastSent <
+      STOREFRONT_EVENT_WINDOW_MS
+    ) {
       return;
     }
 
-    fetch("/apps/nearby-pulse", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json"
-      },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        event_type: eventType,
-        productId,
-        productTitle
+
+    fetch(
+      "/apps/nearby-pulse",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+
+          Accept:
+            "application/json"
+        },
+
+        credentials:
+          "same-origin",
+
+        body:
+          JSON.stringify({
+            event_type:
+              eventType,
+
+            product_id:
+              productId,
+
+            product_title:
+              productTitle,
+
+             session_id:
+      nearbyPulseSessionId
+          })
+      }
+    )
+      .then(async function (
+        response
+      ) {
+        const text =
+          await response.text();
+
+
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}: ${text}`
+          );
+        }
+
+
+        setStoredValue(
+          eventKey,
+          String(
+            Date.now()
+          )
+        );
+
+
+        console.log(
+          `[NearbyPulse] Storefront event recorded: ${eventType}`
+        );
       })
-    })
-      .then(function () {
-        localStorage.setItem(eventKey, String(Date.now()));
-      })
-      .catch(function (error) {
+      .catch(function (
+        error
+      ) {
         console.error(
-          `[NearbyPulse] Failed to send storefront event ${eventType}:`,
+          `[NearbyPulse] Failed to record ${eventType}:`,
           error
         );
       });
   }
 
-  // Seed real activity records so social-proof messages can appear.
-  sendStorefrontEventOnce("product_viewed");
+
+   /*
+    * Record the real product view before requesting
+    * a NearbyPulse message.
+    *
+    * The anonymous session ID is sent with both
+    * requests, so the server excludes this visitor's
+    * own activity from social-proof selection.
+    */
+  sendStorefrontEventOnce(
+    "product_viewed"
+  );
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Add to cart tracking
+  |--------------------------------------------------------------------------
+  */
 
   const addToCartSelectors = [
     'form[action*="/cart/add"] button[type="submit"]',
@@ -144,246 +457,522 @@
     'button[data-product-atc]'
   ];
 
-  addToCartSelectors.forEach(function (selector) {
-    document.querySelectorAll(selector).forEach(function (button) {
-      button.addEventListener("click", function () {
-        sendStorefrontEventOnce("add_to_cart");
-      });
-    });
+
+  addToCartSelectors.forEach(
+    function (selector) {
+
+      document
+        .querySelectorAll(
+          selector
+        )
+        .forEach(
+          function (button) {
+
+            button.addEventListener(
+              "click",
+              function () {
+
+                sendStorefrontEventOnce(
+                  "add_to_cart"
+                );
+
+              }
+            );
+
+          }
+        );
+
+    }
+  );
+
+
+  /*
+  |--------------------------------------------------------------------------
+  | Request NearbyPulse message
+  |--------------------------------------------------------------------------
+  */
+
+  const requestTimestamp =
+    Date.now();
+
+  const query =
+  new URLSearchParams({
+    product_id:
+      productId,
+
+    product_title:
+      productTitle,
+
+    session_id:
+      nearbyPulseSessionId,
+
+    cache_buster:
+      String(
+        requestTimestamp
+      )
   });
 
-  const query = new URLSearchParams({
-    product_id: productId,
-    product_title: productTitle,
-    cache_buster: String(now)
-  });
 
-  const endpoint = `/apps/nearby-pulse?${query.toString()}`;
+  const endpoint =
+    `/apps/nearby-pulse?${query.toString()}`;
 
-  console.log("[NearbyPulse] Starting widget");
-  console.log("[NearbyPulse] Product ID:", productId);
-  console.log("[NearbyPulse] Request URL:", endpoint);
 
-  fetch(endpoint, {
-    method: "GET",
-    headers: {
-      Accept: "application/json"
-    },
-    credentials: "same-origin",
-    cache: "no-store"
-  })
-    .then(async function (response) {
-      const responseText = await response.text();
+  console.log(
+    "[NearbyPulse] Starting widget"
+  );
 
-      console.log("[NearbyPulse] HTTP status:", response.status);
-      console.log("[NearbyPulse] Raw API response:", responseText);
 
-      if (!response.ok) {
-        throw new Error(
-          `NearbyPulse request failed with status ${response.status}: ${responseText}`
-        );
+  fetch(
+    endpoint,
+    {
+      method: "GET",
+
+      headers: {
+        Accept:
+          "application/json"
+      },
+
+      credentials:
+        "same-origin",
+
+      cache:
+        "no-store"
+    }
+  )
+    .then(
+      async function (
+        response
+      ) {
+
+        const responseText =
+          await response.text();
+
+
+        if (!response.ok) {
+          throw new Error(
+            `NearbyPulse request failed with status ${response.status}: ${responseText}`
+          );
+        }
+
+
+        try {
+
+          return JSON.parse(
+            responseText
+          );
+
+        } catch {
+
+          throw new Error(
+            `NearbyPulse returned invalid JSON: ${responseText}`
+          );
+
+        }
       }
+    )
 
-      try {
-        return JSON.parse(responseText);
-      } catch (error) {
-        throw new Error(
-          `NearbyPulse returned invalid JSON: ${responseText}`
-        );
-      }
-    })
-    .then(function (data) {
-      console.log("[NearbyPulse] Parsed response:", data);
 
-      if (!data.shouldShow) {
-        console.warn(
-          "[NearbyPulse] API returned shouldShow=false.",
-          data.debugReason || data
-        );
-        return;
-      }
+    .then(
+      function (data) {
 
-      if (!data.message) {
-        console.warn(
-          "[NearbyPulse] API returned no message.",
+        console.log(
+          "[NearbyPulse] API response:",
           data
         );
-        return;
-      }
 
-      const oneHour = 60 * 60 * 1000;
 
-      const cooldownMinutes = Number(
-        data.cooldownMinutes ?? 0
-      );
+        /*
+        |--------------------------------------------------------------------------
+        | Nothing to display
+        |--------------------------------------------------------------------------
+        */
 
-      const cooldown = cooldownMinutes * 60 * 1000;
-
-      const maxPerHour = Number(
-        data.maxPerProductPerHour ?? 20
-      );
-
-      let history = [];
-
-      try {
-        history = JSON.parse(
-          localStorage.getItem(storageKey) || "[]"
-        );
-
-        if (!Array.isArray(history)) {
-          history = [];
-        }
-      } catch (error) {
-        console.warn(
-          "[NearbyPulse] Invalid localStorage history. Resetting it.",
-          error
-        );
-
-        history = [];
-      }
-
-      history = history.filter(function (item) {
-        return (
-          item &&
-          Number.isFinite(Number(item.time)) &&
-          now - Number(item.time) < oneHour
-        );
-      });
-
-      const lastShown =
-        history.length > 0
-          ? Number(history[history.length - 1].time)
-          : 0;
-
-      console.log("[NearbyPulse] Display limits:", {
-        historyCount: history.length,
-        maxPerHour,
-        cooldownMinutes,
-        lastShown,
-        millisecondsSinceLastShown: now - lastShown
-      });
-
-      if (history.length >= maxPerHour) {
-        console.warn(
-          "[NearbyPulse] Widget blocked by hourly limit."
-        );
-        return;
-      }
-
-      if (lastShown && now - lastShown < cooldown) {
-        console.warn(
-          "[NearbyPulse] Widget blocked by cooldown."
-        );
-        return;
-      }
-
-      textElement.textContent = data.message;
-      widget.style.display = "block";
-
-      console.log(
-        "[NearbyPulse] Widget displayed:",
-        data.message
-      );
-
-      history.push({
-        time: now,
-        messageType: data.messageType || null
-      });
-
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify(history)
-      );
-
-      const trackingKey =
-        `nearby_pulse_tracked_${productId}`;
-
-      const trackingWindow =
-        30 * 60 * 1000;
-
-      const lastTracked = Number(
-        localStorage.getItem(trackingKey) || 0
-      );
-
-      const canTrack =
-        now - lastTracked > trackingWindow;
-
-      function sendEvent(eventType) {
-        if (!data.tracking) {
-          console.warn(
-            `[NearbyPulse] Tracking data missing for ${eventType}.`
-          );
+        if (
+          !data.shouldShow ||
+          !data.message
+        ) {
           return;
         }
 
-        fetch("/apps/nearby-pulse", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json"
-          },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            ...data.tracking,
-            event_type: eventType
-          })
-        })
-          .then(async function (response) {
-            const responseText = await response.text();
 
-            console.log(
-              `[NearbyPulse] ${eventType} tracking response:`,
-              response.status,
-              responseText
-            );
-          })
-          .catch(function (error) {
-            console.error(
-              `[NearbyPulse] ${eventType} tracking failed:`,
-              error
-            );
-          });
-      }
+        /*
+         * Step 2 guarantees that every
+         * displayed message has a server-created
+         * widget impression.
+         */
+        if (!data.displayToken) {
 
-      if (canTrack) {
-        sendEvent("widget_shown");
+          console.error(
+            "[NearbyPulse] Message returned without display token."
+          );
 
-        localStorage.setItem(
-          trackingKey,
-          String(now)
-        );
-      }
-
-      widget.addEventListener(
-        "click",
-        function onWidgetClick() {
-          sendEvent("widget_clicked");
-        },
-        {
-          once: true
+          return;
         }
-      );
 
-      const displaySeconds = Math.max(
-        3,
-        Number(data.displaySeconds || 10)
-      );
 
-      window.setTimeout(function () {
-        widget.style.display = "none";
+        /*
+        |--------------------------------------------------------------------------
+        | Merchant display rules
+        |--------------------------------------------------------------------------
+        */
+
+        const now =
+          Date.now();
+
+
+        const oneHour =
+          60 *
+          60 *
+          1000;
+
+
+        const cooldownMinutes =
+          Math.max(
+            0,
+            Number(
+              data.cooldownMinutes ??
+              0
+            )
+          );
+
+
+        const cooldownMs =
+          cooldownMinutes *
+          60 *
+          1000;
+
+
+        const maxPerHour =
+          Math.max(
+            1,
+            Number(
+              data.maxPerProductPerHour ??
+              20
+            )
+          );
+
+
+        let history =
+          [];
+
+
+        try {
+
+          history =
+            JSON.parse(
+              localStorage.getItem(
+                displayStorageKey
+              ) ||
+              "[]"
+            );
+
+
+          if (
+            !Array.isArray(
+              history
+            )
+          ) {
+            history = [];
+          }
+
+        } catch {
+
+          history = [];
+
+        }
+
+
+        history =
+          history.filter(
+            function (item) {
+
+              return (
+                item &&
+                Number.isFinite(
+                  Number(
+                    item.time
+                  )
+                ) &&
+                now -
+                  Number(
+                    item.time
+                  ) <
+                  oneHour
+              );
+
+            }
+          );
+
+
+        const lastShown =
+          history.length > 0
+            ? Number(
+                history[
+                  history.length - 1
+                ].time
+              )
+            : 0;
+
+
+        if (
+          history.length >=
+          maxPerHour
+        ) {
+
+          console.log(
+            "[NearbyPulse] Widget blocked by hourly limit."
+          );
+
+          return;
+
+        }
+
+
+        if (
+          lastShown &&
+          now - lastShown <
+            cooldownMs
+        ) {
+
+          console.log(
+            "[NearbyPulse] Widget blocked by cooldown."
+          );
+
+          return;
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Trusted widget analytics
+        |--------------------------------------------------------------------------
+        |
+        | The browser sends ONLY:
+        |
+        | event_type
+        | display_token
+        |
+        | It does not decide:
+        |
+        | product
+        | city
+        | message
+        | activity
+        | template
+        |--------------------------------------------------------------------------
+        */
+
+        function sendWidgetEvent(
+          eventType
+        ) {
+
+          fetch(
+            "/apps/nearby-pulse",
+            {
+              method:
+                "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                Accept:
+                  "application/json"
+              },
+
+              credentials:
+                "same-origin",
+
+              body:
+                JSON.stringify({
+                  event_type:
+                    eventType,
+
+                  display_token:
+                    data.displayToken
+                })
+            }
+          )
+            .then(
+              async function (
+                response
+              ) {
+
+                const responseText =
+                  await response.text();
+
+
+                if (
+                  !response.ok
+                ) {
+
+                  console.error(
+                    `[NearbyPulse] ${eventType} analytics failed:`,
+                    response.status,
+                    responseText
+                  );
+
+                  return;
+
+                }
+
+
+                console.log(
+                  `[NearbyPulse] ${eventType} recorded`
+                );
+
+              }
+            )
+            .catch(
+              function (
+                error
+              ) {
+
+                console.error(
+                  `[NearbyPulse] ${eventType} analytics request failed:`,
+                  error
+                );
+
+              }
+            );
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Display
+        |--------------------------------------------------------------------------
+        */
+
+        textElement.textContent =
+          data.message;
+
+
+        widget.style.display =
+          "block";
+
 
         console.log(
-          "[NearbyPulse] Widget hidden after",
-          displaySeconds,
-          "seconds"
+          "[NearbyPulse] Widget displayed:",
+          data.message
         );
-      }, displaySeconds * 1000);
-    })
-    .catch(function (error) {
-      console.error("[NearbyPulse] Widget error:", error);
-    });
+
+
+        /*
+         * Record local display history only
+         * after the widget is really visible.
+         */
+        history.push({
+          time:
+            now,
+
+          displayToken:
+            data.displayToken,
+
+          messageType:
+            data.messageType ||
+            null
+        });
+
+
+        try {
+
+          localStorage.setItem(
+            displayStorageKey,
+            JSON.stringify(
+              history
+            )
+          );
+
+        } catch {
+          /*
+           * Storage unavailable.
+           */
+        }
+
+
+        /*
+         * This is the exact moment we count
+         * widget_shown.
+         */
+        sendWidgetEvent(
+          "widget_shown"
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Click analytics
+        |--------------------------------------------------------------------------
+        */
+
+        widget.addEventListener(
+          "click",
+
+          function () {
+
+            sendWidgetEvent(
+              "widget_clicked"
+            );
+
+          },
+
+          {
+            once: true
+          }
+        );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Auto hide
+        |--------------------------------------------------------------------------
+        */
+
+        const displaySeconds =
+          Math.max(
+            3,
+            Number(
+              data.displaySeconds ||
+              10
+            )
+          );
+
+
+        window.setTimeout(
+          function () {
+
+            widget.style.display =
+              "none";
+
+          },
+
+          displaySeconds *
+          1000
+        );
+
+      }
+    )
+
+
+    .catch(
+      function (error) {
+
+        console.error(
+          "[NearbyPulse] Widget error:",
+          error
+        );
+
+      }
+    );
+
 })();
 </script>
+
+
+
 {% schema %}
 {
   "name": "NearbyPulse Widget",

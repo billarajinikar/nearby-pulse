@@ -1,41 +1,118 @@
-import { redirect, Form, useLoaderData } from "react-router";
+import {
+  redirect,
+  Form,
+  useLoaderData,
+} from "react-router";
+
 import { login } from "../../shopify.server";
+
 import styles from "./styles.module.css";
 
-export const loader = async ({ request }) => {
-  const url = new URL(request.url);
 
-  if (url.searchParams.get("shop")) {
-    throw redirect(`/app?${url.searchParams.toString()}`);
+export const loader = async ({
+  request,
+}) => {
+  const url =
+    new URL(request.url);
+
+  if (
+    url.searchParams.get("shop")
+  ) {
+    throw redirect(
+      `/app?${url.searchParams.toString()}`,
+    );
   }
 
-  return { showForm: Boolean(login) };
+  return {
+    showForm:
+      Boolean(login),
+  };
 };
 
+
 export default function App() {
-  const { showForm } = useLoaderData();
+
+  const { showForm } =
+    useLoaderData();
+
 
   return (
     <div className={styles.index}>
+
       <div className={styles.content}>
+
         <div className={styles.heroTop}>
-          <p className={styles.badge}>Shopify App</p>
-          <p className={styles.dataSourceBadge}>
-            Data source: Activity + merchant announcements
+
+          <p className={styles.badge}>
+            Shopify App
           </p>
+
+          <p
+            className={
+              styles.dataSourceBadge
+            }
+          >
+            Real storefront activity + merchant announcements
+          </p>
+
         </div>
-        <h1 className={styles.heading}>Real social proof from real nearby customers.</h1>
-        <p className={styles.text}>
-          NearbyPulse shows shoppers genuine purchase activity from customers in their area —
-          building trust and boosting conversions without fake urgency.
+
+
+        <h1
+          className={
+            styles.heading
+          }
+        >
+          Build customer confidence with relevant social proof.
+        </h1>
+
+
+        <p
+          className={
+            styles.text
+          }
+        >
+          NearbyPulse uses real storefront activity
+          and merchant-created messages to show
+          shoppers timely, location-aware social
+          proof without fabricated urgency.
         </p>
+
+
         {showForm && (
-          <Form className={styles.form} method="post" action="/auth/login">
-            <div className={styles.formCard}>
-              <label className={styles.label}>
-                <span className={styles.labelTitle}>Shop domain</span>
+          <Form
+            className={
+              styles.form
+            }
+            method="post"
+            action="/auth/login"
+          >
+
+            <div
+              className={
+                styles.formCard
+              }
+            >
+
+              <label
+                className={
+                  styles.label
+                }
+              >
+
+                <span
+                  className={
+                    styles.labelTitle
+                  }
+                >
+                  Shop domain
+                </span>
+
+
                 <input
-                  className={styles.input}
+                  className={
+                    styles.input
+                  }
                   type="text"
                   name="shop"
                   placeholder="your-store.myshopify.com"
@@ -43,60 +120,203 @@ export default function App() {
                   inputMode="url"
                   required
                 />
-                <span className={styles.labelHint}>
-                  Use your <strong>.myshopify.com</strong> domain to continue.
+
+
+                <span
+                  className={
+                    styles.labelHint
+                  }
+                >
+                  Use your{" "}
+                  <strong>
+                    .myshopify.com
+                  </strong>{" "}
+                  domain to continue.
                 </span>
+
               </label>
-              <button className={styles.button} type="submit">
+
+
+              <button
+                className={
+                  styles.button
+                }
+                type="submit"
+              >
                 Continue to Shopify
               </button>
+
             </div>
-            <p className={styles.formTrust}>No credit card required. Setup usually takes under 2 minutes.</p>
+
+
+            <p
+              className={
+                styles.formTrust
+              }
+            >
+              No credit card required.
+              Setup usually takes under
+              2 minutes.
+            </p>
+
           </Form>
         )}
+
+
         <ul className={styles.list}>
+
           <li>
-            <strong>Location-aware social proof</strong>. Show shoppers real purchase activity from nearby customers — powered by your actual Shopify orders.
+            <strong>
+              Location-aware social proof
+            </strong>
+            . Show shoppers recent nearby
+            activity when suitable activity
+            is available.
           </li>
+
+
           <li>
-            <strong>100% real data</strong>. Messages are backed by genuine orders, not fabricated urgency. Stay FTC-compliant and build lasting trust.
+            <strong>
+              Truthful messaging
+            </strong>
+            . NearbyPulse uses real recorded
+            activity and merchant-created
+            announcements instead of
+            manufacturing fake social proof.
           </li>
+
+
           <li>
-            <strong>Analytics & insights</strong>. Track widget impressions, top visitor cities, and most-influenced products from your dashboard.
+            <strong>
+              NearbyPulse Intelligence
+            </strong>
+            . Understand product activity,
+            widget displays, customer funnel
+            signals and opportunities from
+            your dashboard.
           </li>
+
         </ul>
-        <section className={styles.trustSection} aria-label="Trust and compliance highlights">
-          <h2 className={styles.trustHeading}>Why merchants trust NearbyPulse</h2>
-          <div className={styles.trustGrid}>
-            <article className={styles.trustCard}>
-              <h3>Transparent messaging</h3>
+
+
+        <section
+          className={
+            styles.trustSection
+          }
+          aria-label="Trust and compliance highlights"
+        >
+
+          <h2
+            className={
+              styles.trustHeading
+            }
+          >
+            Why merchants use NearbyPulse
+          </h2>
+
+
+          <div
+            className={
+              styles.trustGrid
+            }
+          >
+
+            <article
+              className={
+                styles.trustCard
+              }
+            >
+
+              <h3>
+                Transparent messaging
+              </h3>
+
               <p>
-                NearbyPulse prioritizes genuine activity signals and merchant-owned announcements.
+                NearbyPulse prioritizes genuine
+                storefront activity and
+                merchant-owned announcements.
               </p>
+
             </article>
-            <article className={styles.trustCard}>
-              <h3>Privacy-conscious design</h3>
+
+
+            <article
+              className={
+                styles.trustCard
+              }
+            >
+
+              <h3>
+                Privacy-conscious design
+              </h3>
+
               <p>
-                We use coarse location context for relevance and avoid exposing personal customer identity.
+                NearbyPulse uses coarse location
+                context and anonymous session
+                identifiers without exposing
+                individual customer identities.
               </p>
+
             </article>
-            <article className={styles.trustCard}>
-              <h3>Simple billing & support</h3>
+
+
+            <article
+              className={
+                styles.trustCard
+              }
+            >
+
+              <h3>
+                Useful merchant insights
+              </h3>
+
               <p>
-                Clear plan terms, responsive support, and quick setup help you launch with confidence.
+                See where NearbyPulse appears,
+                how shoppers move through the
+                customer funnel, and which
+                products may deserve attention.
               </p>
+
             </article>
+
           </div>
-          <nav className={styles.trustLinks} aria-label="Policy and support links">
-            <a href="/privacy">Privacy Policy</a>
-            <a href="/terms">Terms of Service</a>
-            <a href="/support">Support</a>
+
+
+          <nav
+            className={
+              styles.trustLinks
+            }
+            aria-label="Policy and support links"
+          >
+
+            <a href="/privacy">
+              Privacy Policy
+            </a>
+
+            <a href="/terms">
+              Terms of Service
+            </a>
+
+            <a href="/support">
+              Support
+            </a>
+
           </nav>
+
         </section>
-        <p className={styles.footnote}>
-          By logging in, you agree to the NearbyPulse terms and privacy policy.
+
+
+        <p
+          className={
+            styles.footnote
+          }
+        >
+          By logging in, you agree to the
+          NearbyPulse terms and privacy policy.
         </p>
+
       </div>
+
     </div>
   );
 }
